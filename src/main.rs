@@ -28,6 +28,7 @@ fn main() -> ! {
     let gpio_d = dp.GPIOD.split();
 
     let mut green_led = gpio_d.pd12.into_push_pull_output();
+    let mut blue_led = gpio_d.pd15.into_push_pull_output();
 
     bern_kernel::kernel::init();
     bern_kernel::time::set_tick_frequency(1.kHz(), 100.MHz());
@@ -42,7 +43,18 @@ fn main() -> ! {
                     sleep(100);
                     green_led.set_low();
                     sleep(100);
-                    rprintln!("Cycle done.");
+                    rprintln!("Green led cycle done.");
+                }
+            });
+        Thread::new(c)
+            .priority(Priority::new(0))
+            .stack(Stack::try_new_in(c, 1024).unwrap())
+            .spawn(move || {
+                loop {
+                    blue_led.set_high();
+                    sleep(50);
+                    blue_led.set_low();
+                    sleep(50);
                 }
             });
     }).unwrap();
