@@ -2,7 +2,7 @@
 authors = ["Matteo Rango <rango.matteo@icloud.com>"]
 edition = "2018"
 readme = "README.md"
-name = "bern_os_blink_example"
+name = "bern_rtos_blink_example"
 version = "0.1.0"
 
 [dependencies]
@@ -24,7 +24,7 @@ opt-level = "s"
 bern-conf = { path = "conf" }
 
 [[bin]]
-name = "bern_os_blink_example"
+name = "bern_rtos_blink_example"
 test = false
 bench = false
 
