@@ -4,41 +4,48 @@
 #![allow(unused)]
 
 use panic_halt as _;
-//use panic_abort as _; // requires nightly
-//use panic_itm as _; // logs messages over ITM; requires ITM support
-//use panic_semihosting as _; // logs messages to the host stderr; requires a debugger
 
 use cortex_m_rt::entry;
-use cortex_m_semihosting::hprintln;
-use dht11::Dht11;
+use stm32f4xx_hal::gpio::GpioExt;
 use stm32f4xx_hal as f4;
-use stm32f4xx_hal::gpio::{GpioExt, PA5, PinState};
-use stm32f4xx_hal::hal::delay::DelayNs;
-use stm32f4xx_hal::prelude::{_fugit_RateExtU32, _stm32f4xx_hal_spi_SpiExt};
-use stm32f4xx_hal::rcc::RccExt;
-use stm32f4xx_hal::serial::SerialExt;
-use stm32f4xx_hal::time::U32Ext;
-use stm32f4xx_hal::timer::{SysDelay, SysTimerExt};
-use stm32f4xx_hal::uart::Config;
+
+use bern_kernel::exec::process::Process;
+use bern_kernel::exec::runnable::Priority;
+use bern_kernel::exec::thread::Thread;
+use bern_kernel::stack::Stack;
+use bern_kernel::sleep;
+use bern_kernel::units::frequency::ExtMilliHertz;
+
+use rtt_target::{rtt_init_print, rprintln};
+
+static PROC: &Process = bern_kernel::new_process!(my_process1, 8192);
 
 #[entry]
 fn main() -> ! {
-    let cp = cortex_m::Peripherals::take().expect("Core peripherals cannot be accessed");
+    rtt_init_print!();
     let dp = f4::pac::Peripherals::take().expect("Peripherals cannot be accessed");
 
-    let rcc = dp.RCC.constrain();
-    let clocks = rcc.cfgr.use_hse(8.MHz()).sysclk(100.MHz()).freeze();
+    let gpio_d = dp.GPIOD.split();
 
-    let mut delay = cp.SYST.delay(&clocks);
+    let mut green_led = gpio_d.pd12.into_push_pull_output();
 
-    let gpiod = dp.GPIOD.split();
+    bern_kernel::kernel::init();
+    bern_kernel::time::set_tick_frequency(1.kHz(), 100.MHz());
 
-    let mut green_led = gpiod.pd12.into_push_pull_output();
+    PROC.init(move |c| {
+        Thread::new(c)
+            .priority(Priority::new(0))
+            .stack(Stack::try_new_in(c, 1024).unwrap())
+            .spawn(move || {
+                loop {
+                    green_led.set_high();
+                    sleep(100);
+                    green_led.set_low();
+                    sleep(100);
+                    rprintln!("Cycle done.");
+                }
+            });
+    }).unwrap();
 
-    loop {
-        green_led.set_high();
-        delay.delay_ms(1000_u32);
-        green_led.set_low();
-        delay.delay_ms(1000_u32);
-    }
+    bern_kernel::start()
 }
